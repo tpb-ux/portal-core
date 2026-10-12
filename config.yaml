@@ -1,0 +1,33 @@
+# Modelo de config. tools/novo_portal.py substitui nome, domínio e nicho.
+site_name: Portal Exemplo
+tagline: Notícias e dados do setor
+descricao: "Portal Exemplo reúne resumos de fontes públicas e páginas de dados oficiais, sempre com link para a origem."
+base_url: https://exemplo.com.br
+cname: exemplo.com.br
+language: pt-BR
+nicho: exemplo
+noindex_global: true          # pré-lançamento: noindex + robots Disallow + IndexNow desligado
+aviso_topo: "Versão de prévia: em revisão, não indexada."
+publisher_logo: /static/logo.png
+tema: {cor: "#C93D17", cor2: "#A83212", escuro: "#2E333D"}
+modulos: [exemplo]            # módulos de nichos/<nicho>/ ou caminho completo (ex.: core.modulos.glossario)
+qualidade: {min_faqs: 5, min_palavras_pseo: 300}
+editorias:
+  - {slug: geral, nome: Geral, descricao: "Notícias gerais do setor, resumidas de fontes públicas com link para a íntegra.", sub: []}
+menu:
+  barra: [[Exemplos, /exemplos/]]
+  rotulo_dropdown: Referência
+  referencia: [[Buscar, /busca/]]
+rodape:
+  - {titulo: Institucional, links: [[Sobre, /sobre/], [Expediente, /expediente/], [Política editorial, /politica-editorial/], [Metodologia, /metodologia/], [Correções, /correcoes/], [Direito de resposta, /direito-de-resposta/], [Contato, /contato/], [Termos, /termos/], [Privacidade, /privacidade/]]}
+home_faqs:
+  - {p: "O que é o portal?", r: "Resposta."}
+  - {p: "De onde vêm as notícias?", r: "Resposta."}
+  - {p: "Usam IA?", r: "Não."}
+  - {p: "Com que frequência atualiza?", r: "A cada 30 minutos."}
+  - {p: "Como pedir correção?", r: "Pela página de correções."}
+responsavel_editorial: ""
+# empresa é obrigatória: sem ela as páginas institucionais ficam com menos de 5 FAQs e o build falha
+empresa: {razao_social: "EMPRESA EXEMPLO (substituir)", cnpj: "00.000.000/0000-00", endereco: {logradouro: "Rua Exemplo, 1", bairro: Centro, cidade: São Paulo, uf: SP, cep: "00000-000"}, email: "", formulario_url: "", encarregado_lgpd: "", redes: []}
+verificacao: {google: "", bing: ""}
+indexnow_key: ""

@@ -1,0 +1,13 @@
+# Só feeds com itens com imagem própria (no feed ou og:image), testados a partir do servidor de produção. Registre aqui quem saiu e por quê.
+max_por_execucao: 20
+max_por_feed: 3
+max_idade_dias: 3
+editoria_padrao: geral
+feeds:
+  - {nome: Fonte Exemplo, url: "https://exemplo.org/feed/", confiavel: true}
+palavras_editoria: {geral: [setor]}
+palavras_relevancia: []
+nota_minima: 3
+bloqueio_palavras: []
+bloqueio_fontes: []
+# restricao_editoria: {eleicoes: {ate: "AAAA-MM-DD", exige: [termo]}, "*": {ate: "AAAA-MM-DD", exige: [""], bloqueia: [termo]}}

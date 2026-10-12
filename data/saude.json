@@ -1,0 +1,37 @@
+{
+ "formato": "saude-portal/1",
+ "portal": "Portal Exemplo",
+ "url": "https://exemplo.com.br",
+ "gerado_em": "2026-10-12T10:51:17+00:00",
+ "materias": {
+  "total": 0,
+  "ultimas_24h": 0,
+  "ultimos_7d": 0,
+  "com_imagem_propria_pct": null,
+  "mais_recente": null
+ },
+ "feeds": {
+  "total": 0,
+  "ok": 0,
+  "erro": 0,
+  "vazio": 0,
+  "itens_com_imagem_no_feed_pct": null,
+  "lista": []
+ },
+ "coleta": {
+  "ultima_execucao": null,
+  "evento": null,
+  "run_id": null,
+  "novas_na_ultima": null,
+  "ultima_execucao_automatica_ok": null,
+  "ultima_execucao_agendada_ok": null,
+  "por_evento": {}
+ },
+ "site": {
+  "paginas_indexaveis": 11,
+  "paginas_total": 15,
+  "noindex_global": true,
+  "links_internos_quebrados": 0,
+  "build": "local"
+ }
+}

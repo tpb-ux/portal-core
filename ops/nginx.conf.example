@@ -1,0 +1,14 @@
+# /etc/nginx/sites-available/<dominio>  (certbot --nginx -d <dominio> -d www.<dominio> depois)
+server {
+  listen 80; listen [::]:80;
+  server_name <dominio> www.<dominio>;
+  root /var/www/<portal>;
+  index index.html;
+  if ($host = www.<dominio>) { return 301 https://<dominio>$request_uri; }
+  location / { try_files $uri $uri/ =404; }
+  error_page 404 /404.html;
+  location /static/ { expires 30d; add_header Cache-Control "public, max-age=2592000"; }
+  location ~* \.(html|xml|json|txt)$ { add_header Cache-Control "no-cache"; }
+  gzip on; gzip_types text/css application/javascript application/json application/xml text/xml text/plain image/svg+xml;
+  add_header X-Content-Type-Options nosniff; add_header Referrer-Policy strict-origin-when-cross-origin;
+}

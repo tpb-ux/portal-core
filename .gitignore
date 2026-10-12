@@ -1,0 +1,7 @@
+public/
+data/cache/
+__pycache__/
+*.pyc
+ALERTA.txt
+data/indexnow_hashes.next.json
+data/indexnow_pendentes.txt
