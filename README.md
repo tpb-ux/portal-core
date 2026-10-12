@@ -33,3 +33,14 @@ Páginas de famílias pSEO com menos de 300 palavras viram `noindex,follow` e sa
 Ver `ops/`. Cron nos minutos 7 e 37: `git fetch` + merge de `origin/main`, coleta, build, `rsync` para o webroot, IndexNow (se não for prévia), commit local dos dados e `ALERTA.txt`.
 
 Migração do Modal News para este núcleo: ver `MIGRACAO_MODALNEWS.md`.
+
+## Qualidade, indexação e conteúdo próprio
+
+- **Unicidade** (`core/qualidade.py`): para cada família, mede a fração de 5-gramas (números normalizados) que aparecem em no máximo 10% das páginas da família. Páginas abaixo de `qualidade.corte_unicidade` (padrão 0,15) viram noindex e saem do sitemap. A semelhança média (Jaccard) e as medianas vão para o log do build e para `saude.json` (`qualidade`).
+- **FAQ**: páginas pSEO (`qualidade.faq_pseo.prefixos`) ficam com até 3 perguntas, só as que trazem número. Hubs e glossário mantêm o FAQ completo.
+- **Lançamento em ondas**: `indexacao.familias_noindex` deixa famílias inteiras em noindex (com `excecoes`). Para liberar a próxima onda, basta tirar a família da lista.
+- **Imagens**: matérias de feed usam card próprio gerado (`core/cards.py`, sem IA). Foto de terceiro só com licença confirmada (`feeds.yaml: licencas_imagem`) e com crédito. `migrar_cards()` troca as fotos antigas no mesmo caminho, então as URLs continuam valendo.
+- **robots.txt**: seções explícitas para buscadores, buscadores de IA e bots de treino (todos liberados). Com noindex global, fica `Disallow: /`.
+- **Anti-rede** (`rede_dominios`): o build falha se o domínio de outro portal do mesmo dono aparecer no cabeçalho, rodapé ou menu, ou em mais de 5% das páginas.
+- **Autores e análises**: `data/autores.yaml` (entradas sem nome ficam ocultas). Matérias próprias ficam em `drafts/` e só são publicadas com `status: aprovado`, autor e revisor cadastrados e nenhuma marca `[[REVISÃO]]` (ver `drafts/README.md`). Elas saem em `/analises/` como NewsArticle com autor e entram no `sitemap-noticias.xml`.
+- **llms.txt** enxuto: identificação, política e hubs principais.

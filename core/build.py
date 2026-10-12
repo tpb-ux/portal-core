@@ -4,7 +4,7 @@ from email.utils import format_datetime
 from pathlib import Path
 import markdown, yaml
 from .site import Site, E, slugify, fit
-from . import saude, indexnow
+from . import saude, indexnow, autores, qualidade as Q
 
 BRT = dt.timezone(dt.timedelta(hours=-3))
 
@@ -17,9 +17,11 @@ def load_posts(S):
         if not isinstance(d, dt.datetime): d = dt.datetime.combine(d, dt.time(8))
         if d.tzinfo is None: d = d.replace(tzinfo=BRT)
         if m["editoria"] not in S.EDS: raise SystemExit(f"{f.name}: editoria inválida {m['editoria']}")
-        if not str(m.get("imagem", "")).startswith("/static/img/"): continue  # regra: só matéria com foto própria
+        if m.get("tipo") == "analise" and not str(m.get("imagem", "")).startswith("/static/img/"): m.update(imagem="/static/og-default.png", imagem_w=1200, imagem_h=630)
+        elif not str(m.get("imagem", "")).startswith("/static/img/"): continue  # regra: só matéria com foto na fonte (capa: foto licenciada ou card próprio)
         slug = m.get("slug") or slugify(f.stem)
-        posts.append(dict(m, data=d, slug=slug, url=f"/{m['editoria']}/{slug}/", html=markdown.markdown(body, extensions=["extra"])))
+        url = f"/analises/{slug}/" if m.get("tipo") == "analise" else f"/{m['editoria']}/{slug}/"
+        posts.append(dict(m, data=d, slug=slug, url=url, html=markdown.markdown(body, extensions=["extra"])))
     return sorted(posts, key=lambda p: p["data"], reverse=True)
 
 def img(S, p, sizes="(max-width: 760px) 100vw, 300px", priority=False, cls=""):
@@ -82,6 +84,7 @@ def sitemaps(S, posts):
     for u, m in S.urls.items():
         if m["idx"]: fams.setdefault(m["familia"], []).append(u)
     files = []
+    if autores.sitemap_noticias(S, posts): files.append("sitemap-noticias.xml")
     for fam, us in sorted(fams.items()):
         rows = "".join(f"<url><loc>{S.BASE}{u}</loc>" + (f"<lastmod>{S.urls[u]['lastmod']}</lastmod>" if S.urls[u]["lastmod"] else "")
                        + (f"<image:image><image:loc>{S.BASE}{S.urls[u]['image']}</image:loc></image:image>" if S.urls[u]["image"] else "") + "</url>" for u in sorted(us))
@@ -90,22 +93,23 @@ def sitemaps(S, posts):
     (S.OUT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(f"<sitemap><loc>{S.BASE}/{f}</loc></sitemap>" for f in files) + "</sitemapindex>", encoding="utf-8")
     items = "".join(f"<item><title>{E(p['titulo'])}</title><link>{S.BASE}{p['url']}</link><guid>{S.BASE}{p['url']}</guid><pubDate>{format_datetime(p['data'])}</pubDate><description>{E(p.get('resumo', ''))}</description></item>" for p in posts[:30])
     (S.OUT / "rss.xml").write_text(f'<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>{E(S.CFG["site_name"])}</title><link>{S.BASE}/</link><description>{E(S.CFG["tagline"])}</description><language>pt-br</language>{items}</channel></rss>', encoding="utf-8")
-    if S.NOINDEX: rb = "User-agent: *\nDisallow: /\n"
-    else: rb = f"User-agent: *\nAllow: /\nDisallow: /saude.json\nDisallow: /busca/\nDisallow: /*?utm_\n\nSitemap: {S.BASE}/sitemap.xml\n"
-    (S.OUT / "robots.txt").write_text(rb)
+    (S.OUT / "robots.txt").write_text(Q.robots_txt(S.BASE, S.NOINDEX))
     return files
 
 def llms(S):
+    """llms.txt enxuto (hubs, dados abertos, confiança). llms-full.txt mantém a lista completa de indexáveis."""
+    hubs = [u for u, m in S.urls.items() if m["idx"] and u.count("/") == 2 and m["familia"] not in ("paginas", "artigos")]
+    out = [f"# {S.CFG['site_name']}", "", f"> {S.CFG.get('descricao', S.CFG['tagline'])}", "", S.CFG.get("llms_intro", ""), "", "## Seções e dados", ""]
+    for u in sorted(hubs): out.append(f"- [{S.urls[u]['title']}]({S.BASE}{u}): {S.urls[u]['desc']}")
+    csvs = sorted((S.OUT / "dados").glob("*.csv")) if (S.OUT / "dados").exists() else []
+    if csvs: out += ["", "## Dados abertos (CSV)", ""] + [f"- {S.BASE}/dados/{f.name}" for f in csvs]
+    out += ["", "## Confiança", ""] + [f"- [{S.urls[u]['title']}]({S.BASE}{u})" for u in ("/sobre/", "/expediente/", "/politica-editorial/", "/metodologia/", "/correcoes/", "/dados/") if u in S.urls]
+    out += ["", f"Lista completa: {S.BASE}/llms-full.txt · Sitemap: {S.BASE}/sitemap.xml", ""]
     sec = {}
     for u, m in S.urls.items():
         if m["idx"]: sec.setdefault("/" + u.strip("/").split("/")[0] + "/" if u != "/" else "/", []).append(u)
-    out = [f"# {S.CFG['site_name']}", "", f"> {S.CFG.get('descricao', S.CFG['tagline'])}", "", S.CFG.get("llms_intro", "Site estático em português. Dados de fontes oficiais citadas em cada página; notícias de terceiros são resumos com link para a fonte."), "", "## Seções", ""]
     full = out[:5] + ["## Todas as páginas indexáveis", ""]
-    for hub, us in sorted(sec.items(), key=lambda x: -len(x[1])):
-        m = S.urls.get(hub, {"title": hub, "desc": ""})
-        out.append(f"- [{m['title']}]({S.BASE}{hub}): {m['desc']} ({len(us)} páginas)")
     for u in sorted(u for u, m in S.urls.items() if m["idx"]): full.append(f"- [{S.urls[u]['title']}]({S.BASE}{u}): {S.urls[u]['desc']}")
-    out += ["", f"Lista completa: {S.BASE}/llms-full.txt · Sitemap: {S.BASE}/sitemap.xml", ""]
     (S.OUT / "llms.txt").write_text("\n".join(out), encoding="utf-8"); (S.OUT / "llms-full.txt").write_text("\n".join(full) + "\n", encoding="utf-8")
 
 RUNTIME = {"/saude.json"}  # gerados depois da checagem
@@ -131,8 +135,35 @@ def quality(S):
         seen[m["title"]] = u
         if not (50 <= len(m["desc"]) <= 165): S.errors.append(f"{u}: descrição com {len(m['desc'])} caracteres (50–165)")
 
+def unicidade(S):
+    """Páginas pSEO (famílias fora de paginas/artigos, profundidade >= 2) com pouco texto próprio saem do índice."""
+    qc = S.CFG.get("qualidade") or {}; fams = {}; cand = set()
+    for u, m in S.urls.items():
+        if m["familia"] in ("paginas", "artigos", "analises") or u.count("/") < 3: continue
+        f = S.OUT / u.lstrip("/") / "index.html"
+        if not f.exists(): continue
+        fams.setdefault(m["familia"], {})[u] = f.read_text(encoding="utf-8")
+        if m["idx"] or u in S.ondas: cand.add(u)  # páginas retidas por onda também são medidas
+    stats, abaixo = Q.unicidade(fams, corte=qc.get("corte_unicidade", 0.15), cortes=qc.get("cortes_unicidade"), avaliar=cand)
+    for u in abaixo:
+        if u not in S.ondas: S.thin.add(u)
+        S.urls[u]["idx"] = False
+        if not S.NOINDEX:
+            f = S.OUT / u.lstrip("/") / "index.html"; f.write_text(Q.set_robots(f.read_text(encoding="utf-8"), "noindex,follow"), encoding="utf-8")
+    sim = Q.similaridade({k: {u: h for u, h in v.items() if u in cand and u not in abaixo} for k, v in fams.items()})
+    return {"unicidade": stats, "noindex_por_unicidade": len(abaixo), "similaridade_jaccard5": sim}
+
 def main(root):
-    S = Site(root); posts = load_posts(S)
+    import os; os.chdir(root)
+    S = Site(root)
+    try:
+        from . import fetch as _f
+        n = _f.migrar_cards()
+        if n: print(f"Imagens: {n} foto(s) sem licença confirmada trocadas por card próprio (mesmo caminho) ou crédito atualizado")
+    except SystemExit: raise
+    except Exception as ex: print("Imagens: migração não executada:", ex)
+    AUT = autores.carregar(S)
+    posts = [p for p in load_posts(S) if autores.publicavel(p, AUT)]
     if S.OUT.exists(): shutil.rmtree(S.OUT)
     core_static = Path(__file__).parent / "static"
     shutil.copytree(core_static, S.OUT / "static")
@@ -147,11 +178,22 @@ def main(root):
     S.posts = posts
     # artigos agregados: sempre noindex,follow (o ranking vem do conteúdo de referência)
     for p in posts:
+        own = p.get("tipo") == "analise"
+        if own:
+            ld = {"@type": "NewsArticle", "headline": p["titulo"][:110], "description": p.get("resumo", ""), "image": [S.BASE + p["imagem"]], "datePublished": p["data"].isoformat(),
+                  "dateModified": (p.get("atualizado") or p["data"]).isoformat() if hasattr(p.get("atualizado") or p["data"], "isoformat") else p["data"].isoformat(),
+                  "articleSection": "Análises", "mainEntityOfPage": S.BASE + p["url"], "author": autores.person(S, AUT[p["autor"]]), "editor": autores.person(S, AUT[p["revisado_por"]]), "publisher": {"@id": S.BASE + "/#org"}}
+            b = (f'<article class="post"><div class="kick"><a href="/analises/">Análises</a></div><h1>{E(p["titulo"])}</h1>'
+                 f'<p class="meta">Por <a href="/autores/{p["autor"]}/">{E(AUT[p["autor"]]["nome"])}</a> · revisão de <a href="/autores/{p["revisado_por"]}/">{E(AUT[p["revisado_por"]]["nome"])}</a> · <time datetime="{p["data"].isoformat()}">{p["data"]:%d/%m/%Y %H:%M}</time></p>'
+                 f'<p class="lead">{E(p.get("resumo", ""))}</p>{p["html"]}</article>')
+            S.write(p["url"], S.page(p["titulo"], p.get("resumo", "") or p["titulo"], p["url"], b, og_img=S.BASE + p["imagem"], og_type="article", jsonld=ld,
+                                     crumbs=[("Análises", "/analises/"), (p["titulo"][:60], p["url"])]), familia="analises", faq_min=0, lastmod=p["data"].date().isoformat(), image=p["imagem"])
+            continue
         ld = {"@type": "NewsArticle", "headline": p["titulo"][:110], "description": p.get("resumo", ""), "image": [S.BASE + p["imagem"]],
               "datePublished": p["data"].isoformat(), "dateModified": p["data"].isoformat(), "articleSection": S.EDS[p["editoria"]]["nome"],
               "mainEntityOfPage": S.BASE + p["url"], "author": {"@type": "Organization", "name": p.get("fonte") or S.CFG["site_name"]}, "isBasedOn": p.get("link"),
               "publisher": {"@id": S.BASE + "/#org"}}
-        cred = f'<figcaption>Imagem: {E(p["imagem_credito"])}</figcaption>' if p.get("imagem_credito") else ""
+        cred = (f'<figcaption>Foto: {E(p["imagem_credito"])}' + (f' (<a href="{E(p["imagem_licenca"])}" target="_blank" rel="noopener">licença</a>)' if p.get("imagem_licenca") else "") + '</figcaption>') if p.get("imagem_credito") else ""
         b = (f'<article class="post"><div class="kick"><a href="/{p["editoria"]}/">{E(S.EDS[p["editoria"]]["nome"])}</a></div><h1>{E(p["titulo"])}</h1>'
              f'<p class="meta">Publicado em <time datetime="{p["data"].isoformat()}">{p["data"]:%d/%m/%Y %H:%M}</time>{" · Fonte: " + E(p["fonte"]) if p.get("fonte") else ""}</p>'
              f'<figure class="cover">{img(S, p, "(max-width: 800px) 100vw, 760px", True, "cover")}{cred}</figure>{p["html"]}</article>')
@@ -163,6 +205,12 @@ def main(root):
         mod = importlib.import_module(m if "." in m else f"nichos.{S.nicho}.{m}")
         S.modulos[m] = mod.build(S) or {}
     institucional(S)
+    autores.paginas(S, AUT)
+    an = [p for p in posts if p.get("tipo") == "analise"]
+    if an:
+        S.write("/analises/", S.page(f"Análises | {S.CFG['site_name']}", f"Análises próprias do {S.CFG['site_name']} com dados oficiais, assinadas e revisadas, com fonte e método.", "/analises/",
+                                     f'<section class="blk">{sec("Conteúdo próprio", "Análises", tag="h1")}<div class="grid">{"".join(card(S, p, "h2") for p in an)}</div></section>',
+                                     crumbs=[("Análises", "/analises/")], jsonld=S.itemlist([(p["titulo"], p["url"]) for p in an])), familia="analises", faq_min=0)
     # editorias
     for s, e in S.EDS.items():
         ps = [p for p in posts if p["editoria"] == s]
@@ -179,10 +227,16 @@ def main(root):
     nf = f'<section class="blk"><h1>Página não encontrada</h1><p>O endereço não existe ou foi movido. Use a <a href="/busca/">busca</a> ou volte ao <a href="/">início</a>.</p></section>'
     (S.OUT / "404.html").write_text(S.page(f"Página não encontrada | {S.CFG['site_name']}", "Página não encontrada.", "/404.html", nf, robots="noindex").replace('href="/', f'href="{S.PREFIX}/').replace('src="/', f'src="{S.PREFIX}/'), encoding="utf-8")
     if S.CFG.get("indexnow_key"): (S.OUT / f"{S.CFG['indexnow_key']}.txt").write_text(S.CFG["indexnow_key"])
+    S.qualidade = unicidade(S)
+    erros_rede, pct_rede = Q.anti_rede(S.OUT, S.CFG.get("rede_dominios") or [])
+    S.errors += erros_rede
+    S.qualidade.update(faq_pseo=dict(S.faq_stats), rede_links_pct=pct_rede, ondas_noindex=len(S.ondas))
     quality(S)
     files = sitemaps(S, posts); llms(S)
     broken = linkcheck(S)
     for u, (n, src) in sorted(broken.items(), key=lambda x: -x[1][0])[:30]: print(f"LINK QUEBRADO {u} ({n}x, ex.: {src})")
+    print("Unicidade: " + ", ".join(f"{k}: mediana {v['texto_proprio_mediana']}, {v['abaixo_do_corte']} abaixo" for k, v in S.qualidade["unicidade"].items()) + " · similaridade: " + ", ".join(f"{k}={v}" for k, v in S.qualidade["similaridade_jaccard5"].items()))
+    if S.ondas: print(f"Ondas: {len(S.ondas)} página(s) em noindex por família ainda não liberada (config indexacao.familias_noindex)")
     if S.thin: print(f"Qualidade: {len(S.thin)} página(s) abaixo do mínimo de palavras em noindex: " + ", ".join(sorted(S.thin)[:8]))
     if S.errors:
         for e in S.errors[:40]: print("ERRO:", e)

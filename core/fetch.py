@@ -132,7 +132,10 @@ def editoria_image(ed):
 
 def img_fm(info, src_name):
     out = [f"imagem: {q(info['imagem'])}", f"imagem_w: {info['imagem_w']}", f"imagem_h: {info['imagem_h']}"]
-    if info.get("imagem_origem"): out += [f"imagem_credito: {q(src_name)}", f"imagem_origem: {q(info['imagem_origem'])}"]
+    if info.get("imagem_card"): out.append("imagem_card: true")
+    elif info.get("imagem_origem"):
+        out += [f"imagem_credito: {q(info.get('credito') or src_name)}", f"imagem_origem: {q(info['imagem_origem'])}"]
+        if info.get("licenca_url"): out.append(f"imagem_licenca: {q(info['licenca_url'])}")
     return "\n".join(out)
 
 def migrar():
@@ -147,6 +150,66 @@ def migrar():
         lines.insert(4, img_fm(info, fm.get("fonte", "")))
         f.write_text("---\n" + "\n".join(lines) + "\n---" + body, encoding="utf-8")
         print(f"~ {f.name}: {info['imagem']}")
+
+# ------------------------------------------------------------------ política de imagem
+# Foto da fonte só com licença confirmada na documentação oficial do veículo (feeds.yaml > licencas_imagem) E
+# crédito do fotógrafo encontrado na página no padrão do licenciante (foto de outra agência na mesma matéria -> card).
+# Sem isso, a matéria ganha um card próprio (Pillow, sem IA) no mesmo caminho /static/img/<slug>.webp.
+def _html(url):
+    try: return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20).read().decode("utf-8", "ignore")
+    except Exception: return ""
+
+def credito_licenciado(cfg, src_name, link):
+    lic = (cfg.get("licencas_imagem") or {}).get(src_name)
+    if not lic or not link: return None
+    m = re.search(lic["padrao"], html.unescape(_html(link)))
+    if not m: return None
+    autor = re.sub(r"\s+", " ", m.group(1)).strip(" :-")
+    if not autor or len(autor) > 80: return None
+    return {"credito": lic["credito"].format(autor=autor), "licenca_url": lic.get("url")}
+
+def card_image(title, ed, src_name, when, stem):
+    from core import cards
+    t = _C.get("tema") or {}; eds = {e["slug"]: e["nome"] for e in _C["editorias"]}
+    w, h = cards.card(IMG / stem, title, marca=_C["site_name"], editoria=eds.get(ed, ""), rodape=f"Resumo de {src_name} · {when:%d/%m/%Y} · ilustração do {_C['site_name']}",
+                      cor=t.get("cor", "#C93D17"), escuro=t.get("escuro", "#2E333D"))
+    return {"imagem": f"/static/img/{stem}.webp", "imagem_w": w, "imagem_h": h, "imagem_card": True}
+
+def imagem_materia(cfg, e, link, title, ed, src_name, when, stem):
+    """Retorna o front matter de imagem ou None (sem foto na fonte = matéria descartada, como antes)."""
+    src_img = feed_image(e) or og_image(link)
+    if not src_img: return None
+    cr = credito_licenciado(cfg, src_name, link)
+    if cr:
+        info = save_image(src_img, stem) or (save_image(og_image(link), stem) if feed_image(e) else None)
+        if info: return {**info, **cr}
+    return card_image(title, ed, src_name, when, stem)
+
+def migrar_cards(cfg=None):
+    """Idempotente, roda em todo build: foto de terceiro sem licença+crédito confirmados vira card no MESMO caminho;
+    foto licenciada sem crédito de fotógrafo registrado ganha o crédito (ou vira card se não houver). Fotos órfãs viram card genérico."""
+    cfg = cfg or yaml.safe_load((ROOT / "feeds.yaml").read_text(encoding="utf-8")); n = 0
+    lic = cfg.get("licencas_imagem") or {}
+    for f in sorted(CONTENT.glob("*.md")):
+        raw = f.read_text(encoding="utf-8"); _, fm_txt, body = raw.split("---", 2); fm = yaml.safe_load(fm_txt) or {}
+        im = str(fm.get("imagem", ""))
+        if fm.get("imagem_card") or fm.get("imagem_licenca") or not im.startswith("/static/img/") or im.startswith("/static/img/editoria/"): continue
+        d = fm["data"] if isinstance(fm["data"], dt.datetime) else dt.datetime.fromisoformat(str(fm["data"]))
+        cr = credito_licenciado(cfg, fm.get("fonte", ""), fm.get("link")) if fm.get("fonte") in lic else None
+        info = {"imagem": im, "imagem_w": fm.get("imagem_w"), "imagem_h": fm.get("imagem_h"), "imagem_origem": fm.get("imagem_origem") or fm.get("link"), **cr} if cr else \
+               card_image(fm["titulo"], fm["editoria"], fm.get("fonte", ""), d, im.rsplit("/", 1)[1][:-5])
+        lines = [l for l in fm_txt.strip("\n").split("\n") if not l.startswith("imagem")]
+        lines.insert(4, img_fm(info, fm.get("fonte", "")))
+        f.write_text("---\n" + "\n".join(lines) + "\n---" + body, encoding="utf-8"); n += 1
+    from core import cards
+    usados = {str((yaml.safe_load(f.read_text(encoding="utf-8").split("---", 2)[1]) or {}).get("imagem", "")).rsplit("/", 1)[-1] for f in CONTENT.glob("*.md")}
+    reg = IMG / ".cards"; feitos = set(reg.read_text().split()) if reg.exists() else set(); t = _C.get("tema") or {}
+    for im in sorted(IMG.glob("*.webp")) if IMG.exists() else []:
+        if im.name.endswith("-480.webp") or im.name in usados or im.name in feitos: continue
+        cards.card(IMG / im.stem, _C.get("tagline", _C["site_name"]), marca=_C["site_name"], rodape=_C.get("cname", ""), cor=t.get("cor", "#C93D17"), escuro=t.get("escuro", "#2E333D"))
+        feitos.add(im.name); n += 1
+    if IMG.exists(): reg.write_text("\n".join(sorted(feitos)) + "\n")
+    return n
 
 def existing():
     links, titles = set(), set()
@@ -208,7 +271,7 @@ def main():
             when = when.astimezone(BRT).replace(microsecond=0)
             fn = CONTENT / f"{when:%Y-%m-%d}-{slugify(title)}.md"
             if fn.exists(): continue
-            info = None if a.dry_run else (save_image(feed_image(e), fn.stem) or save_image(og_image(link), fn.stem))  # imagem do feed inválida -> tenta og:image
+            info = None if a.dry_run else imagem_materia(cfg, e, link, title, ed, src_name, when, fn.stem)  # licença+crédito confirmados -> foto; senão card próprio
             if not info and not a.dry_run:  # só notícias com foto própria da fonte
                 print(f"  - sem foto: {title[:60]}"); st_["descartadas_sem_foto"] += 1; continue
             body = (f"---\ntitulo: {q(title)}\ndata: {when.isoformat()}\neditoria: {ed}\nresumo: {q(resumo)}\n"

@@ -3,6 +3,7 @@ import datetime as dt, hashlib, html, json, os, re, unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
 import yaml
+from .qualidade import INDEX_ROBOTS, set_robots
 
 E = html.escape
 
@@ -31,7 +32,8 @@ class Site:
         ev = os.environ.get("PORTAL_NOINDEX", "")
         self.NOINDEX = ev == "1" or (ev != "0" and bool(c.get("noindex_global")))  # PORTAL_NOINDEX=0 força desligado (testes)
         self.urls = {}       # path -> dict(idx, familia, lastmod, image, title, desc)
-        self.thin, self.errors = set(), []
+        self.thin, self.errors, self.ondas = set(), [], set()
+        self.faq_stats = {"pseo_paginas": 0, "pseo_faqs": 0, "pseo_removidas": 0}
         self.css_v = ""
         self.nicho = c.get("nicho", "exemplo")
 
@@ -72,9 +74,19 @@ class Site:
         return [org, {"@type": "WebSite", "@id": self.BASE + "/#site", "name": c["site_name"], "url": self.BASE + "/", "inLanguage": c.get("language", "pt-BR"), "publisher": {"@id": self.BASE + "/#org"},
                       "potentialAction": {"@type": "SearchAction", "target": self.BASE + "/busca/?q={q}", "query-input": "required name=q"}}]
 
+    def faq_pseo(self, path, faqs):
+        """Regra de FAQ: em páginas pSEO (prefixos em qualidade.faq_pseo) ficam no máximo N perguntas, só as que
+        trazem dado da própria página (número na resposta). Hubs listados em faq_pseo.hubs mantêm o FAQ completo."""
+        q = (self.CFG.get("qualidade") or {}).get("faq_pseo") or {}
+        if not faqs or path.count("/") < 3 or not path.startswith(tuple(q.get("prefixos", []))) or path.startswith(tuple(q.get("hubs", []))): return faqs, False
+        keep = [(a, b) for a, b in faqs if re.search(r"\d", re.sub(r"<[^>]+>", "", b))][: q.get("max", 3)]
+        st = self.faq_stats; st["pseo_paginas"] += 1; st["pseo_faqs"] += len(keep); st["pseo_removidas"] += len(faqs) - len(keep)
+        return keep, True
+
     def page(self, title, desc, path, body, *, faqs=None, crumbs=None, jsonld=None, og_img=None, og_type="website", robots=None, h1=None):
         """Monta a página. faqs=[(pergunta, resposta_html)] vira seção visível + FAQPage idêntico. crumbs=[(nome,url)]."""
         c = self.CFG; graph = []
+        faqs, pseo = self.faq_pseo(path, faqs)
         if crumbs is not None:
             ch, cl = self.crumbs(crumbs); body = ch + body; graph.append(cl)
         if faqs:
@@ -83,10 +95,10 @@ class Site:
             j = {k: v for k, v in j.items() if k != "@context"}
             if j.get("@type") in ("Article", "NewsArticle") and not j.get("image"): j["image"] = og_img or self.BASE + "/static/og-default.png"
             graph.append(j)
-        self._last = {"faqs": len(faqs or []), "title": title}
+        self._last = {"faqs": len(faqs or []), "title": title, "pseo": pseo}
         title, desc = fit(title, 65), fit(desc, 160)
         canon = self.BASE + path; img = og_img or self.BASE + "/static/og-default.png"
-        rb = "noindex,nofollow" if self.NOINDEX else robots
+        rb = "noindex,nofollow" if self.NOINDEX else (robots or INDEX_ROBOTS)
         vf = c.get("verificacao") or {}
         meta = f'<meta name="robots" content="{rb}">' if rb else ""
         if path == "/" and not self.NOINDEX:
@@ -127,9 +139,13 @@ document.addEventListener('click',function(e){{var x=document.querySelector('det
         minw = q.get("min_palavras_pseo", 300)
         if idx and familia not in ("paginas", "artigos") and words(txt.split("<main", 1)[-1].split("</main>")[0]) < minw:
             idx = False; self.thin.add(path)
-        if not idx and 'name="robots"' not in txt:
-            txt = txt.replace("<meta name=\"description\"", '<meta name="robots" content="noindex,follow"><meta name="description"', 1)
+        ind = self.CFG.get("indexacao") or {}
+        exc = ind.get("excecoes") or []
+        if idx and os.environ.get("PORTAL_SEM_ONDAS") != "1" and familia in (ind.get("familias_noindex") or []) and not any(path == e or (e.endswith("*") and path.startswith(e[:-1])) for e in exc):  # lançamento em ondas
+            idx = False; self.ondas.add(path)
+        if not idx and not self.NOINDEX: txt = set_robots(txt, "noindex,follow")
         meta = getattr(self, "_last", {})
+        if meta.get("pseo") and faq_min is None: faq_min = 0  # pSEO: 0 a 3 FAQs com dado
         if idx and meta.get("faqs", 0) < (faq_min if faq_min is not None else q.get("min_faqs", 5)):
             self.errors.append(f"{path}: indexável com {meta.get('faqs', 0)} FAQs (mínimo {q.get('min_faqs', 5)})")
         t = re.search(r"<title>(.*?)</title>", txt, re.S); d = re.search(r'<meta name="description" content="(.*?)"', txt)

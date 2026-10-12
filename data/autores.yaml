@@ -1,0 +1,5 @@
+# Autores e revisores do conteúdo próprio (análises). Entradas sem nome ficam ocultas: nenhuma página
+# /autores/ e nenhum schema Person é publicado até que os campos sejam preenchidos.
+# Campos: slug, nome, cargo, bio, foto (/static/img/autores/<slug>.webp), sameAs (perfis oficiais: LinkedIn, X, Lattes...)
+autores:
+  - {slug: responsavel-editorial, nome: "", cargo: "Responsável editorial", bio: "", foto: "", sameAs: []}

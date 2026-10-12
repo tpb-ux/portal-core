@@ -11,7 +11,17 @@ aviso_topo: "Versão de prévia: em revisão, não indexada."
 publisher_logo: /static/logo.png
 tema: {cor: "#C93D17", cor2: "#A83212", escuro: "#2E333D"}
 modulos: [exemplo]            # módulos de nichos/<nicho>/ ou caminho completo (ex.: core.modulos.glossario)
-qualidade: {min_faqs: 5, min_palavras_pseo: 300}
+qualidade:
+  min_faqs: 5
+  min_palavras_pseo: 300
+  corte_unicidade: 0.15        # fração mínima de texto próprio (5-gramas raros na família); abaixo disso a página vira noindex
+  cortes_unicidade: {}         # corte por família, ex.: {tabela-x: 0.08} (justificar na metodologia)
+  faq_pseo: {prefixos: [], max: 3, hubs: []}   # pSEO: até 3 FAQs com número; hubs mantêm o FAQ completo
+# Lançamento em ondas: famílias listadas ficam noindex (exceto as páginas em excecoes; "*" no fim = prefixo).
+indexacao: {familias_noindex: [], excecoes: []}
+# Regra anti-rede: domínios de outros portais do mesmo dono. O build falha se aparecerem no cabeçalho,
+# rodapé ou menu, ou em mais de 5% das páginas. Link só quando editorialmente relevante.
+rede_dominios: []
 editorias:
   - {slug: geral, nome: Geral, descricao: "Notícias gerais do setor, resumidas de fontes públicas com link para a íntegra.", sub: []}
 menu:
