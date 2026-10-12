@@ -182,7 +182,7 @@ def main(root):
         from .autolink import Autolink
         _, _termos = _gl.carregar(S.ROOT)
         if _termos:
-            S.autolink = Autolink(_termos, maximo=int(al.get("maximo", 10)))
+            S.autolink = Autolink(_termos, maximo=int(al.get("maximo", 10)), ignorar=[S.CFG.get("site_name", "")] + list(al.get("ignorar") or []))
             S.autolink_familias = set(al.get("familias") or ["artigos", "glossario"])
             S.autolink_paths = {f"/{s}/" for s in S.EDS} if al.get("editorias", True) else set()
     # artigos agregados: sempre noindex,follow (o ranking vem do conteúdo de referência)

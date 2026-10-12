@@ -57,8 +57,10 @@ def variantes(t):
 
 
 class Autolink:
-    def __init__(self, termos, base="/glossario/", maximo=10, classe="gl-link"):
+    def __init__(self, termos, base="/glossario/", maximo=10, classe="gl-link", ignorar=()):
+        """ignorar: expressões que nunca viram link mesmo contendo um termo (ex.: nome do próprio site)."""
         self.base, self.maximo, self.classe = base, maximo, classe
+        self.ign = [x.lower() for x in ignorar]
         self.forms = {}  # forma em minúsculas -> (slug, forma, sigla?)
         self.nome = {}
         for t in termos:
@@ -96,6 +98,7 @@ class Autolink:
                 if n >= self.maximo: break
                 slug = self._ok(m)
                 if not slug or slug in usados: continue
+                if any(s[max(0, m.start() - len(x)):m.start() + len(x)].lower().find(x) != -1 and x.find(m.group(1).lower()) != -1 for x in self.ign): continue
                 usados.add(slug); n += 1
                 res.append(s[last:m.start()]); res.append(f'<a class="{self.classe}" href="{self.base}{slug}/" title="O que é {_h.escape(self.nome[slug])}?">{m.group(1)}</a>'); last = m.end()
             res.append(s[last:]); return "".join(res)
