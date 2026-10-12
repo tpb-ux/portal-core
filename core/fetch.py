@@ -183,9 +183,12 @@ def imagem_materia(cfg, e, link, title, ed, src_name, when, stem):
     if cr:
         info = save_image(src_img, stem) or (save_image(og_image(link), stem) if feed_image(e) else None)
         if info: return {**info, **cr}
-    return card_image(title, ed, src_name, when, stem)
+    # decisão editorial (12/10/2026): foto original da fonte em WebP, nome = slug, com alt, crédito e link para a fonte
+    info = save_image(src_img, stem) or (save_image(og_image(link), stem) if feed_image(e) else None)
+    return {**info, "imagem_credito": src_name} if info else None
 
 def migrar_cards(cfg=None):
+    return 0  # desligado: decisão de manter as fotos originais das fontes (12/10/2026)
     """Idempotente, roda em todo build: foto de terceiro sem licença+crédito confirmados vira card no MESMO caminho;
     foto licenciada sem crédito de fotógrafo registrado ganha o crédito (ou vira card se não houver). Fotos órfãs viram card genérico."""
     cfg = cfg or yaml.safe_load((ROOT / "feeds.yaml").read_text(encoding="utf-8")); n = 0

@@ -18,7 +18,7 @@ def load_posts(S):
         if d.tzinfo is None: d = d.replace(tzinfo=BRT)
         if m["editoria"] not in S.EDS: raise SystemExit(f"{f.name}: editoria inválida {m['editoria']}")
         if m.get("tipo") == "analise" and not str(m.get("imagem", "")).startswith("/static/img/"): m.update(imagem="/static/og-default.png", imagem_w=1200, imagem_h=630)
-        elif not str(m.get("imagem", "")).startswith("/static/img/"): continue  # regra: só matéria com foto na fonte (capa: foto licenciada ou card próprio)
+        elif not str(m.get("imagem", "")).startswith("/static/img/"): continue  # regra: só matéria com foto na fonte (capa: foto original da fonte, com crédito e link)
         slug = m.get("slug") or slugify(f.stem)
         url = f"/analises/{slug}/" if m.get("tipo") == "analise" else f"/{m['editoria']}/{slug}/"
         posts.append(dict(m, data=d, slug=slug, url=url, html=markdown.markdown(body, extensions=["extra"])))
@@ -159,7 +159,6 @@ def main(root):
     try:
         from . import fetch as _f
         n = _f.migrar_cards()
-        if n: print(f"Imagens: {n} foto(s) sem licença confirmada trocadas por card próprio (mesmo caminho) ou crédito atualizado")
     except SystemExit: raise
     except Exception as ex: print("Imagens: migração não executada:", ex)
     AUT = autores.carregar(S)
@@ -193,7 +192,7 @@ def main(root):
               "datePublished": p["data"].isoformat(), "dateModified": p["data"].isoformat(), "articleSection": S.EDS[p["editoria"]]["nome"],
               "mainEntityOfPage": S.BASE + p["url"], "author": {"@type": "Organization", "name": p.get("fonte") or S.CFG["site_name"]}, "isBasedOn": p.get("link"),
               "publisher": {"@id": S.BASE + "/#org"}}
-        cred = (f'<figcaption>Foto: {E(p["imagem_credito"])}' + (f' (<a href="{E(p["imagem_licenca"])}" target="_blank" rel="noopener">licença</a>)' if p.get("imagem_licenca") else "") + '</figcaption>') if p.get("imagem_credito") else ""
+        cred = (f'<figcaption>Foto: ' + (f'<a href="{E(p["link"])}" target="_blank" rel="nofollow noopener">{E(p["imagem_credito"])}</a>' if p.get("link") else E(p["imagem_credito"])) + (f' (<a href="{E(p["imagem_licenca"])}" target="_blank" rel="noopener">licença</a>)' if p.get("imagem_licenca") else "") + '</figcaption>') if p.get("imagem_credito") else ""
         b = (f'<article class="post"><div class="kick"><a href="/{p["editoria"]}/">{E(S.EDS[p["editoria"]]["nome"])}</a></div><h1>{E(p["titulo"])}</h1>'
              f'<p class="meta">Publicado em <time datetime="{p["data"].isoformat()}">{p["data"]:%d/%m/%Y %H:%M}</time>{" · Fonte: " + E(p["fonte"]) if p.get("fonte") else ""}</p>'
              f'<figure class="cover">{img(S, p, "(max-width: 800px) 100vw, 760px", True, "cover")}{cred}</figure>{p["html"]}</article>')

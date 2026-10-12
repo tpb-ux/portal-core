@@ -12,8 +12,8 @@ bloqueio_palavras: []
 bloqueio_fontes: []
 # restricao_editoria: {eleicoes: {ate: "AAAA-MM-DD", exige: [termo]}, "*": {ate: "AAAA-MM-DD", exige: [""], bloqueia: [termo]}}
 
-# Fotos de fontes: só com licença confirmada na documentação oficial da fonte e crédito do fotógrafo extraído
-# da página no padrão do licenciante. Sem entrada aqui, a matéria usa card próprio (core/cards.py).
+# Fotos das fontes: a foto original é usada com crédito (nome da fonte) e link. Para fontes com licença confirmada,
+# a entrada abaixo extrai o crédito do fotógrafo no padrão do licenciante.
 # Exemplo:
 #   Agência Câmara:
 #     padrao: 'Foto:\s*([^/<>"]{2,80}?)\s*/\s*Câmara dos Deputados'
