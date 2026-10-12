@@ -41,3 +41,8 @@ responsavel_editorial: ""
 empresa: {razao_social: "EMPRESA EXEMPLO (substituir)", cnpj: "00.000.000/0000-00", endereco: {logradouro: "Rua Exemplo, 1", bairro: Centro, cidade: São Paulo, uf: SP, cep: "00000-000"}, email: "", formulario_url: "", encarregado_lgpd: "", redes: []}
 verificacao: {google: "", bing: ""}
 indexnow_key: ""
+
+# Autolink do glossário (core/autolink.py). Requer data/glossario.yaml (+ data/glossario/*.yaml).
+# Regras: 1ª ocorrência por termo, até `maximo` links por página, só no <main>, nunca em títulos,
+# links, código, legendas ou alt; palavra inteira, sinônimos e plurais; termo mais longo vence; sem autolink.
+# autolink: {ativo: true, maximo: 10, familias: [artigos, glossario], editorias: true}

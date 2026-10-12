@@ -109,3 +109,8 @@ footer{padding-bottom:env(safe-area-inset-bottom)}
 nav.ed a,nav.ed .dd{flex:0 0 auto}nav.ed a.xtra{display:none}
 @media(max-width:860px){nav.ed a.xtra{display:inline-block}}
 .prof th{white-space:nowrap;text-transform:none;font-size:.8rem;-webkit-hyphens:none;hyphens:none}
+.glbusca{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .75rem;margin:1rem 0 1.5rem}
+.glbusca label{font-weight:600}
+.glbusca input{flex:1 1 16rem;max-width:28rem;min-width:0;padding:.6rem .8rem;font:inherit;border:1px solid #9aa0a6;border-radius:6px;background:#fff;color:inherit}
+.glbusca input:focus{outline:2px solid #8a4b08;outline-offset:1px}
+#gln{font-size:.9rem;color:#555}

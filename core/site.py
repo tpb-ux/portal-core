@@ -151,6 +151,8 @@ document.addEventListener('click',function(e){{var x=document.querySelector('det
         t = re.search(r"<title>(.*?)</title>", txt, re.S); d = re.search(r'<meta name="description" content="(.*?)"', txt)
         self.urls[path] = {"idx": idx, "familia": familia, "lastmod": lastmod, "image": image, "title": html.unescape(t.group(1)) if t else "", "desc": html.unescape(d.group(1)) if d else ""}
         f = self.OUT / path.lstrip("/"); f = f / "index.html" if path.endswith("/") else f
+        al = getattr(self, "autolink", None)
+        if al and (familia in self.autolink_familias or path in self.autolink_paths): txt, _n = al.aplicar(txt, path)
         if self.PREFIX: txt = re.sub(r'(href|src|action)="/(?!/)', lambda m: f'{m.group(1)}="{self.PREFIX}/', txt)
         f.parent.mkdir(parents=True, exist_ok=True); f.write_text(txt, encoding="utf-8")
 

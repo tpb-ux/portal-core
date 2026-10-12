@@ -44,3 +44,10 @@ Migração do Modal News para este núcleo: ver `MIGRACAO_MODALNEWS.md`.
 - **Anti-rede** (`rede_dominios`): o build falha se o domínio de outro portal do mesmo dono aparecer no cabeçalho, rodapé ou menu, ou em mais de 5% das páginas.
 - **Autores e análises**: `data/autores.yaml` (entradas sem nome ficam ocultas). Matérias próprias ficam em `drafts/` e só são publicadas com `status: aprovado`, autor e revisor cadastrados e nenhuma marca `[[REVISÃO]]` (ver `drafts/README.md`). Elas saem em `/analises/` como NewsArticle com autor e entram no `sitemap-noticias.xml`.
 - **llms.txt** enxuto: identificação, política e hubs principais.
+
+## Glossário e autolink
+
+- `core.modulos.glossario`: lê `data/glossario.yaml` (header: `nome`, `categorias`, `faqs`, `termos`) e mescla `data/glossario/*.yaml` (`termos:` e `complementos: {slug: campos}`). URLs `@CHAVE` vêm de `data/glossario_fontes.yaml`.
+- Cada verbete exige categoria, ≥5 FAQs, base legal com link oficial, relacionados existentes e imagem (`data/glossario_imagens.yaml` + `data/glossario_imagens/<chave>.webp`, licença livre, gera `<slug>.webp`, `-800` e `-480`). Falhas viram erro de build.
+- Página: DefinedTerm + FAQPage + breadcrumb; hub com busca, categorias, A–Z e DefinedTermSet.
+- `core/autolink.py` + bloco `autolink:` no config: links automáticos no build (ver comentário em config.yaml). Por termo: `autolink: false | [variantes]`, `autolink_sigla: false` para siglas ambíguas (PL, MP, MS, BC).

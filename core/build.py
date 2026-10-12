@@ -175,6 +175,16 @@ def main(root):
     if (S.OUT / "static/favicon.ico").exists(): shutil.copy(S.OUT / "static/favicon.ico", S.OUT / "favicon.ico")
     if S.CFG.get("cname") and not S.PREFIX: (S.OUT / "CNAME").write_text(S.CFG["cname"].strip() + "\n")
     S.posts = posts
+    # autolink do glossário (core/autolink.py): carregado antes de qualquer página ser gravada
+    al = S.CFG.get("autolink") or {}
+    if al.get("ativo"):
+        from .modulos import glossario as _gl
+        from .autolink import Autolink
+        _, _termos = _gl.carregar(S.ROOT)
+        if _termos:
+            S.autolink = Autolink(_termos, maximo=int(al.get("maximo", 10)))
+            S.autolink_familias = set(al.get("familias") or ["artigos", "glossario"])
+            S.autolink_paths = {f"/{s}/" for s in S.EDS} if al.get("editorias", True) else set()
     # artigos agregados: sempre noindex,follow (o ranking vem do conteúdo de referência)
     for p in posts:
         own = p.get("tipo") == "analise"
@@ -235,6 +245,9 @@ def main(root):
     broken = linkcheck(S)
     for u, (n, src) in sorted(broken.items(), key=lambda x: -x[1][0])[:30]: print(f"LINK QUEBRADO {u} ({n}x, ex.: {src})")
     print("Unicidade: " + ", ".join(f"{k}: mediana {v['texto_proprio_mediana']}, {v['abaixo_do_corte']} abaixo" for k, v in S.qualidade["unicidade"].items()) + " · similaridade: " + ", ".join(f"{k}={v}" for k, v in S.qualidade["similaridade_jaccard5"].items()))
+    if getattr(S, "autolink", None): print(f"Autolink: {S.autolink.total} link(s) em {S.autolink.paginas} página(s) (média {S.autolink.total / max(S.autolink.paginas, 1):.1f} por página com link)")
+    if getattr(S, "gl_stats", None):
+        g = S.gl_stats; print(f"Glossário: {g['termos']} termos, {g['faqs']} FAQs, média de {sum(g['palavras']) // max(len(g['palavras']), 1)} palavras por verbete · " + ", ".join(f"{k}: {v}" for k, v in g["por_categoria"].items()))
     if S.ondas: print(f"Ondas: {len(S.ondas)} página(s) em noindex por família ainda não liberada (config indexacao.familias_noindex)")
     if S.thin: print(f"Qualidade: {len(S.thin)} página(s) abaixo do mínimo de palavras em noindex: " + ", ".join(sorted(S.thin)[:8]))
     if S.errors:
