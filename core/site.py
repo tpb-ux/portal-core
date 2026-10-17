@@ -101,7 +101,7 @@ class Site:
         rb = "noindex,nofollow" if self.NOINDEX else (robots or INDEX_ROBOTS)
         vf = c.get("verificacao") or {}
         meta = f'<meta name="robots" content="{rb}">' if rb else ""
-        if path == "/" and not self.NOINDEX:
+        if True:
             meta += (f'<meta name="google-site-verification" content="{E(vf["google"])}">' if vf.get("google") else "") + (f'<meta name="msvalidate.01" content="{E(vf["bing"])}">' if vf.get("bing") else "")
         ld = json.dumps({"@context": "https://schema.org", "@graph": graph + self.site_ld()}, ensure_ascii=False).replace("</", "<\\/")
         menu = c.get("menu") or {}
